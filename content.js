@@ -37,13 +37,48 @@
 
   let SELF_OVERRIDE = null;
 
+  function getSelfFromStorage() {
+    const stores = [window.localStorage, window.sessionStorage];
+    const keyHints = ['user', 'username', 'profile', 'account', 'auth', 'login'];
+    for (const s of stores) {
+      if (!s) continue;
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i) || '';
+        const v = s.getItem(k) || '';
+        if (!v || (!keyHints.some(h => k.toLowerCase().includes(h)) && v.length > 5000)) continue;
+        const n1 = normalizeName(v);
+        if (n1) return n1;
+        try {
+          const obj = JSON.parse(v);
+          const stack = [obj];
+          while (stack.length) {
+            const cur = stack.pop();
+            if (!cur || typeof cur !== 'object') continue;
+            for (const [kk, vv] of Object.entries(cur)) {
+              if (typeof vv === 'string') {
+                if (/(user(name)?|login|handle|screen.?name)/i.test(kk)) {
+                  const n = normalizeName(vv);
+                  if (n) return n;
+                }
+              } else if (vv && typeof vv === 'object') {
+                stack.push(vv);
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+    return null;
+  }
+
   function getSelfUsername() {
     if (SELF_OVERRIDE) return SELF_OVERRIDE;
     const selectors = [
       '[data-cy="home-username"]',
       '[data-cy="user-menu-username"]',
       'a[href*="/member/"][aria-label*="Profile"]',
-      'a[href*="/member/"][data-cy*="avatar"]'
+      'a[href*="/member/"][data-cy*="avatar"]',
+      'a[href*="/member/"][aria-current="page"]'
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
@@ -53,7 +88,7 @@
       const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
       if (m) return m[1].toLowerCase();
     }
-    return null;
+    return getSelfFromStorage();
   }
 
   function readNamesFromContainer(containerSelector) {
@@ -85,8 +120,41 @@
     }
     if (uniq.length === 1) return uniq[0];
     if (lastOpponent && uniq.includes(lastOpponent)) return lastOpponent;
-    // Ambiguous without self; don't guess aggressively.
+    // Ambiguous without self: avoid blind guess.
     return null;
+  }
+
+  function getProfileLinkNames() {
+    const names = [];
+    const sels = [
+      'header a[href*="/member/"]',
+      'nav a[href*="/member/"]',
+      'a[aria-label*="Profile"][href*="/member/"]'
+    ];
+    for (const sel of sels) {
+      document.querySelectorAll(sel).forEach(el => {
+        const href = el.getAttribute('href') || '';
+        const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+        if (m) names.push(m[1].toLowerCase());
+      });
+    }
+    return [...new Set(names)];
+  }
+
+  function extractPlayersFromScripts() {
+    const found = [];
+    const scriptTexts = [...document.querySelectorAll('script')].slice(0, 60).map(s => s.textContent || '');
+    const rx = /"(?:white|black|player(?:One|Two)?|opponent)"\s*:\s*\{[^}]*?"username"\s*:\s*"([a-z0-9_-]{3,20})"/ig;
+    for (const t of scriptTexts) {
+      let m;
+      while ((m = rx.exec(t))) found.push(m[1].toLowerCase());
+      // PGN tags fallback
+      const w = t.match(/\[White\s+"([a-z0-9_-]{3,20})"\]/i);
+      const b = t.match(/\[Black\s+"([a-z0-9_-]{3,20})"\]/i);
+      if (w) found.push(w[1].toLowerCase());
+      if (b) found.push(b[1].toLowerCase());
+    }
+    return [...new Set(found)];
   }
 
   function findOpponentUsernameFromDom(lastOpponent = null) {
@@ -103,7 +171,26 @@
 
     // Combine board-only candidates if needed.
     const boardCandidates = [...new Set([...topCandidates, ...bottomCandidates])];
-    return chooseOpponentFromCandidates(boardCandidates, selfName, lastOpponent);
+    const boardPick = chooseOpponentFromCandidates(boardCandidates, selfName, lastOpponent);
+    if (boardPick) return boardPick;
+
+    // Strong fallback: parse embedded game metadata/scripts.
+    const scriptedPlayers = extractPlayersFromScripts();
+
+    // If self unknown, try infer self by matching profile/nav member links.
+    if (!selfName && scriptedPlayers.length >= 2) {
+      const profileNames = getProfileLinkNames();
+      const inferredSelf = scriptedPlayers.find(n => profileNames.includes(n));
+      if (inferredSelf) {
+        const opp = scriptedPlayers.find(n => n !== inferredSelf);
+        if (opp) return opp;
+      }
+    }
+
+    const scriptPick = chooseOpponentFromCandidates(scriptedPlayers, selfName, lastOpponent);
+    if (scriptPick) return scriptPick;
+
+    return null;
   }
 
   function inferGamePool() {
@@ -370,6 +457,10 @@
 
   async function tick() {
     const user = (findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || "").toLowerCase();
+    if (!user) {
+      renderError('Could not auto-detect opponent yet. Click "Me" once, then ↻.');
+      return;
+    }
     await runForUser(user);
   }
 

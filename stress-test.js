@@ -13,22 +13,31 @@ function chooseOpponentFromCandidates(candidates, selfName, lastOpponent) {
   return null;
 }
 
+function inferOpponentFromScriptPlayers(scriptedPlayers, profileNames) {
+  if (!scriptedPlayers || scriptedPlayers.length < 2) return null;
+  const inferredSelf = scriptedPlayers.find(n => profileNames.includes(n));
+  if (!inferredSelf) return null;
+  return scriptedPlayers.find(n => n !== inferredSelf) || null;
+}
+
 const tests = [
-  { c:['me'], self:'me', last:null, want:null, name:'only self -> null' },
-  { c:['me','opp'], self:'me', last:null, want:'opp', name:'self+opp -> opp' },
-  { c:['opp','me'], self:'me', last:null, want:'opp', name:'order irrelevant' },
-  { c:['opp1','opp2','me'], self:'me', last:'opp2', want:'opp2', name:'prefer last opponent when ambiguous' },
-  { c:['opp1','opp2'], self:null, last:null, want:null, name:'ambiguous no self -> null' },
-  { c:['opp1','opp2'], self:null, last:'opp2', want:'opp2', name:'ambiguous no self but last -> last' },
-  { c:['opp'], self:null, last:null, want:'opp', name:'single candidate no self -> use it' },
+  { got: chooseOpponentFromCandidates(['me'], 'me', null), want: null, name: 'only self -> null' },
+  { got: chooseOpponentFromCandidates(['me','opp'], 'me', null), want: 'opp', name: 'self+opp -> opp' },
+  { got: chooseOpponentFromCandidates(['opp','me'], 'me', null), want: 'opp', name: 'order irrelevant' },
+  { got: chooseOpponentFromCandidates(['opp1','opp2','me'], 'me', 'opp2'), want: 'opp2', name: 'prefer last opponent when ambiguous' },
+  { got: chooseOpponentFromCandidates(['opp1','opp2'], null, null), want: null, name: 'ambiguous no self -> null' },
+  { got: chooseOpponentFromCandidates(['opp1','opp2'], null, 'opp2'), want: 'opp2', name: 'ambiguous no self but last -> last' },
+  { got: chooseOpponentFromCandidates(['opp'], null, null), want: 'opp', name: 'single candidate no self -> use it' },
+  { got: inferOpponentFromScriptPlayers(['az','enemy'], ['az']), want: 'enemy', name: 'infer self from profile links' },
+  { got: inferOpponentFromScriptPlayers(['enemy','az'], ['az']), want: 'enemy', name: 'infer order reversed' },
+  { got: inferOpponentFromScriptPlayers(['a','b'], ['x']), want: null, name: 'no profile match -> null' },
 ];
 
 let pass = 0;
 for (const t of tests) {
-  const got = chooseOpponentFromCandidates(t.c, t.self, t.last);
-  const ok = got === t.want;
+  const ok = t.got === t.want;
   if (ok) pass++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}: ${t.name} | got=${got} want=${t.want}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}: ${t.name} | got=${t.got} want=${t.want}`);
 }
 
 if (pass !== tests.length) process.exit(1);
