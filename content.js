@@ -222,7 +222,7 @@
       root.id = "risk-score-widget";
       root.innerHTML = `
         <div class="risk-header">
-          <span>Opponent Risk Score</span>
+          <span>♟️ Opponent Risk Radar</span>
           <div class="risk-actions">
             <button id="risk-refresh" title="Refresh">↻</button>
             <button id="risk-manual" title="Analyze username">@</button>

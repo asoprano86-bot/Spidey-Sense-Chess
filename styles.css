@@ -3,23 +3,26 @@
   top: 16px;
   right: 16px;
   z-index: 2147483647;
-  width: 300px;
-  background: rgba(17, 24, 39, 0.95);
-  color: #f9fafb;
-  border: 2px solid #374151;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  width: 320px;
+  background: linear-gradient(135deg, rgba(17,24,39,.96), rgba(30,41,59,.96));
+  color: #f8fafc;
+  border: 2px solid #334155;
+  border-radius: 14px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,.06);
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   font-size: 13px;
+  overflow: hidden;
 }
 
 #risk-score-widget .risk-header {
   padding: 10px 12px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: .2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: linear-gradient(90deg, rgba(34,197,94,.2), rgba(59,130,246,.18));
 }
 
 #risk-score-widget .risk-actions {
@@ -45,10 +48,11 @@
 }
 
 #risk-score-widget .score {
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 32px;
+  font-weight: 900;
   line-height: 1;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 18px rgba(255,255,255,.12);
 }
 
 #risk-score-widget ul {
