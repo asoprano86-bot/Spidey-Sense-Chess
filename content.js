@@ -30,16 +30,55 @@
     return maybe || null;
   }
 
+  function normalizeName(t) {
+    const v = (t || "").trim().replace(/^@/, "").toLowerCase();
+    return /^[a-z0-9_-]{3,20}$/i.test(v) ? v : null;
+  }
+
   function getSelfUsername() {
-    const selectors = ['[data-cy="home-username"]', '[data-cy="user-menu-username"]'];
+    const selectors = [
+      '[data-cy="home-username"]',
+      '[data-cy="user-menu-username"]',
+      'a[href*="/member/"][aria-label*="Profile"]',
+      'a[href*="/member/"][data-cy*="avatar"]'
+    ];
     for (const sel of selectors) {
-      const txt = (document.querySelector(sel)?.textContent || "").trim().replace(/^@/, "").toLowerCase();
-      if (/^[a-z0-9_-]{3,20}$/i.test(txt)) return txt;
+      const el = document.querySelector(sel);
+      const txt = normalizeName(el?.textContent || "");
+      if (txt) return txt;
+      const href = el?.getAttribute('href') || '';
+      const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+      if (m) return m[1].toLowerCase();
+    }
+    return null;
+  }
+
+  function pickFromContainer(containerSelector) {
+    const container = document.querySelector(containerSelector);
+    if (!container) return null;
+    const candidates = [
+      ...container.querySelectorAll('[data-cy="user-tagline-username"], .user-username-component, .username, a[href^="/member/"]')
+    ];
+    for (const el of candidates) {
+      const txt = normalizeName(el.textContent || "");
+      if (txt) return txt;
+      const href = el.getAttribute('href') || '';
+      const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+      if (m) return m[1].toLowerCase();
     }
     return null;
   }
 
   function findOpponentUsernameFromDom() {
+    // Strong preference: top player on board is usually opponent.
+    const topName = pickFromContainer('.board-layout-player-top, .player-top');
+    const bottomName = pickFromContainer('.board-layout-player-bottom, .player-bottom');
+    const selfName = getSelfUsername();
+
+    if (topName && selfName && topName !== selfName) return topName;
+    if (bottomName && selfName && bottomName !== selfName) return bottomName;
+    if (topName && bottomName && topName !== bottomName) return topName;
+
     const selectors = [
       '[data-cy="user-tagline-username"]',
       '.user-username-component',
@@ -53,12 +92,14 @@
     const names = [];
     for (const sel of selectors) {
       document.querySelectorAll(sel).forEach(el => {
-        const t = (el.textContent || "").trim().replace(/^@/, "").toLowerCase();
-        if (/^[a-z0-9_-]{3,20}$/i.test(t)) names.push(t);
+        const txt = normalizeName(el.textContent || "");
+        if (txt) names.push(txt);
+        const href = el.getAttribute('href') || '';
+        const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+        if (m) names.push(m[1].toLowerCase());
       });
     }
 
-    const selfName = getSelfUsername();
     const dedup = [...new Set(names)];
     if (!dedup.length) return null;
     if (selfName) {
@@ -309,6 +350,11 @@
   async function runForUser(user, force = false) {
     const u = (user || "").toLowerCase();
     if (!u) return;
+    const self = getSelfUsername();
+    if (self && u === self) {
+      renderError(`Detected your own username (@${u}). Click @ to enter opponent manually.`);
+      return;
+    }
     if (!force && u === lastUser) return;
     lastUser = u;
     try {
