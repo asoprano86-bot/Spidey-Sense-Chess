@@ -35,7 +35,10 @@
     return /^[a-z0-9_-]{3,20}$/i.test(v) ? v : null;
   }
 
+  let SELF_OVERRIDE = null;
+
   function getSelfUsername() {
+    if (SELF_OVERRIDE) return SELF_OVERRIDE;
     const selectors = [
       '[data-cy="home-username"]',
       '[data-cy="user-menu-username"]',
@@ -53,60 +56,54 @@
     return null;
   }
 
-  function pickFromContainer(containerSelector) {
+  function readNamesFromContainer(containerSelector) {
     const container = document.querySelector(containerSelector);
-    if (!container) return null;
+    if (!container) return [];
+    const out = [];
     const candidates = [
-      ...container.querySelectorAll('[data-cy="user-tagline-username"], .user-username-component, .username, a[href^="/member/"]')
+      ...container.querySelectorAll('[data-cy="user-tagline-username"], .user-username-component, .username, a[href*="/member/"]')
     ];
     for (const el of candidates) {
       const txt = normalizeName(el.textContent || "");
-      if (txt) return txt;
+      if (txt) out.push(txt);
       const href = el.getAttribute('href') || '';
       const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
-      if (m) return m[1].toLowerCase();
+      if (m) out.push(m[1].toLowerCase());
     }
+    return [...new Set(out)];
+  }
+
+  function chooseOpponentFromCandidates(candidates, selfName, lastOpponent) {
+    const uniq = [...new Set((candidates || []).filter(Boolean))];
+    if (!uniq.length) return null;
+    if (selfName) {
+      const nonSelf = uniq.filter(n => n !== selfName);
+      if (nonSelf.length === 1) return nonSelf[0];
+      if (nonSelf.length > 1 && lastOpponent && nonSelf.includes(lastOpponent)) return lastOpponent;
+      if (nonSelf.length > 1) return nonSelf[0];
+      return null;
+    }
+    if (uniq.length === 1) return uniq[0];
+    if (lastOpponent && uniq.includes(lastOpponent)) return lastOpponent;
+    // Ambiguous without self; don't guess aggressively.
     return null;
   }
 
-  function findOpponentUsernameFromDom() {
-    // Strong preference: top player on board is usually opponent.
-    const topName = pickFromContainer('.board-layout-player-top, .player-top');
-    const bottomName = pickFromContainer('.board-layout-player-bottom, .player-bottom');
+  function findOpponentUsernameFromDom(lastOpponent = null) {
     const selfName = getSelfUsername();
+    const topCandidates = readNamesFromContainer('.board-layout-player-top, .player-top');
+    const bottomCandidates = readNamesFromContainer('.board-layout-player-bottom, .player-bottom');
 
-    if (topName && selfName && topName !== selfName) return topName;
-    if (bottomName && selfName && bottomName !== selfName) return bottomName;
-    if (topName && bottomName && topName !== bottomName) return topName;
+    // Prefer top area first (usually opponent), then bottom.
+    const topPick = chooseOpponentFromCandidates(topCandidates, selfName, lastOpponent);
+    if (topPick) return topPick;
 
-    const selectors = [
-      '[data-cy="user-tagline-username"]',
-      '.user-username-component',
-      '.board-layout-player-top .user-tagline-username',
-      '.board-layout-player-bottom .user-tagline-username',
-      '.player-top .username',
-      '.player-bottom .username',
-      'a[href^="/member/"]'
-    ];
+    const bottomPick = chooseOpponentFromCandidates(bottomCandidates, selfName, lastOpponent);
+    if (bottomPick) return bottomPick;
 
-    const names = [];
-    for (const sel of selectors) {
-      document.querySelectorAll(sel).forEach(el => {
-        const txt = normalizeName(el.textContent || "");
-        if (txt) names.push(txt);
-        const href = el.getAttribute('href') || '';
-        const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
-        if (m) names.push(m[1].toLowerCase());
-      });
-    }
-
-    const dedup = [...new Set(names)];
-    if (!dedup.length) return null;
-    if (selfName) {
-      const other = dedup.find(n => n !== selfName);
-      if (other) return other;
-    }
-    return dedup[0] || null;
+    // Combine board-only candidates if needed.
+    const boardCandidates = [...new Set([...topCandidates, ...bottomCandidates])];
+    return chooseOpponentFromCandidates(boardCandidates, selfName, lastOpponent);
   }
 
   function inferGamePool() {
@@ -226,6 +223,7 @@
           <div class="risk-actions">
             <button id="risk-refresh" title="Refresh">↻</button>
             <button id="risk-manual" title="Analyze username">@</button>
+            <button id="risk-me" title="Set my username">Me</button>
           </div>
         </div>
         <div class="risk-body">Waiting for opponent…</div>`;
@@ -367,20 +365,37 @@
   }
 
   async function tick() {
-    const user = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || "").toLowerCase();
+    const user = (findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || "").toLowerCase();
     await runForUser(user);
   }
 
   function boot() {
     const root = upsertWidget();
+
+    try {
+      chrome?.storage?.sync?.get({ selfUsernameOverride: null }, cfg => {
+        const n = normalizeName(cfg?.selfUsernameOverride || "");
+        if (n) SELF_OVERRIDE = n;
+      });
+    } catch {}
+
     root.querySelector('#risk-refresh')?.addEventListener('click', () => {
-      const user = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || lastUser || "").toLowerCase();
+      const user = (findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || lastUser || "").toLowerCase();
       runForUser(user, true);
     });
     root.querySelector('#risk-manual')?.addEventListener('click', () => {
-      const guessed = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || lastUser || "").toLowerCase();
-      const entered = prompt('Enter Chess.com username to analyze:', guessed || '');
+      const guessed = (findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || lastUser || "").toLowerCase();
+      const entered = prompt('Enter opponent Chess.com username to analyze:', guessed || '');
       if (entered) runForUser(entered.trim().replace(/^@/, ''), true);
+    });
+    root.querySelector('#risk-me')?.addEventListener('click', () => {
+      const guessed = getSelfUsername() || '';
+      const entered = prompt('Set YOUR Chess.com username (saved):', guessed);
+      const n = normalizeName(entered || '');
+      if (n) {
+        SELF_OVERRIDE = n;
+        try { chrome?.storage?.sync?.set?.({ selfUsernameOverride: n }); } catch {}
+      }
     });
 
     tick();
