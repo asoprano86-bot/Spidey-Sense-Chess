@@ -219,7 +219,7 @@
       root.id = "risk-score-widget";
       root.innerHTML = `
         <div class="risk-header">
-          <span>♟️ Opponent Risk Radar</span>
+          <span class="risk-title"><img id="risk-logo" alt="logo" /> Opponent Risk Radar</span>
           <div class="risk-actions">
             <button id="risk-refresh" title="Refresh">↻</button>
             <button id="risk-manual" title="Analyze username">@</button>
@@ -228,6 +228,10 @@
         </div>
         <div class="risk-body">Waiting for opponent…</div>`;
       document.body.appendChild(root);
+      const logo = root.querySelector('#risk-logo');
+      if (logo) {
+        try { logo.src = chrome.runtime.getURL('logo.svg'); } catch {}
+      }
     }
     return root;
   }
