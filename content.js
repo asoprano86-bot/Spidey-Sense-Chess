@@ -179,7 +179,15 @@
     if (!root) {
       root = document.createElement("div");
       root.id = "risk-score-widget";
-      root.innerHTML = `<div class="risk-header">Opponent Risk Score</div><div class="risk-body">Waiting for opponent…</div>`;
+      root.innerHTML = `
+        <div class="risk-header">
+          <span>Opponent Risk Score</span>
+          <div class="risk-actions">
+            <button id="risk-refresh" title="Refresh">↻</button>
+            <button id="risk-manual" title="Analyze username">@</button>
+          </div>
+        </div>
+        <div class="risk-body">Waiting for opponent…</div>`;
       document.body.appendChild(root);
     }
     return root;
@@ -222,7 +230,13 @@
 
   function getConfig() {
     return new Promise(resolve => {
-      chrome.storage.sync.get(DEFAULTS, cfg => resolve({ ...DEFAULTS, ...cfg }));
+      try {
+        if (chrome?.storage?.sync?.get) {
+          chrome.storage.sync.get(DEFAULTS, cfg => resolve({ ...DEFAULTS, ...(cfg || {}) }));
+          return;
+        }
+      } catch {}
+      resolve({ ...DEFAULTS });
     });
   }
 
@@ -292,21 +306,37 @@
 
   let lastUser = null;
 
-  async function tick() {
-    const user = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || "").toLowerCase();
-    if (!user || user === lastUser) return;
-    lastUser = user;
+  async function runForUser(user, force = false) {
+    const u = (user || "").toLowerCase();
+    if (!u) return;
+    if (!force && u === lastUser) return;
+    lastUser = u;
     try {
-      renderLoading(user);
-      const data = await analyze(user);
-      renderResult(user, data);
+      renderLoading(u);
+      const data = await analyze(u);
+      renderResult(u, data);
     } catch {
-      renderError(`Could not analyze @${user} yet.`);
+      renderError(`Could not analyze @${u} yet.`);
     }
   }
 
+  async function tick() {
+    const user = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || "").toLowerCase();
+    await runForUser(user);
+  }
+
   function boot() {
-    upsertWidget();
+    const root = upsertWidget();
+    root.querySelector('#risk-refresh')?.addEventListener('click', () => {
+      const user = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || lastUser || "").toLowerCase();
+      runForUser(user, true);
+    });
+    root.querySelector('#risk-manual')?.addEventListener('click', () => {
+      const guessed = (findOpponentUsernameFromDom() || parseUsernameFromUrl() || lastUser || "").toLowerCase();
+      const entered = prompt('Enter Chess.com username to analyze:', guessed || '');
+      if (entered) runForUser(entered.trim().replace(/^@/, ''), true);
+    });
+
     tick();
     const obs = new MutationObserver(() => tick());
     obs.observe(document.documentElement, { childList: true, subtree: true });
