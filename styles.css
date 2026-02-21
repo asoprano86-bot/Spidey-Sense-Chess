@@ -1,0 +1,48 @@
+#risk-score-widget {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  width: 300px;
+  background: rgba(17, 24, 39, 0.95);
+  color: #f9fafb;
+  border: 2px solid #374151;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 13px;
+}
+
+#risk-score-widget .risk-header {
+  padding: 10px 12px;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#risk-score-widget .risk-body {
+  padding: 10px 12px;
+  line-height: 1.4;
+}
+
+#risk-score-widget .score {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+#risk-score-widget ul {
+  margin: 8px 0 0 18px;
+}
+
+#risk-score-widget .error {
+  color: #fda4af;
+}
+
+#risk-score-widget .low {
+  color: #86efac;
+}
+
+#risk-score-widget details {
+  margin-top: 8px;
+}

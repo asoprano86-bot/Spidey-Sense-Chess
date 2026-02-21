@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Risk Score Options</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    h1 { margin-bottom: 8px; }
+    .row { display:grid; grid-template-columns: 1fr 120px; gap: 12px; margin: 10px 0; align-items:center; }
+    input { padding: 8px; }
+    button { margin-top: 16px; padding: 10px 14px; }
+    #status { margin-left: 8px; color: #166534; }
+  </style>
+</head>
+<body>
+  <h1>Chess Risk Score – Options</h1>
+  <p>Tune score thresholds. Defaults are based on the first top Reddit comment heuristics.</p>
+
+  <div class="row"><label>Suspicious overall winrate (%)</label><input id="suspiciousWinrate" type="number" /></div>
+  <div class="row"><label>High-risk overall winrate (%)</label><input id="highWinrate" type="number" /></div>
+  <div class="row"><label>Low-rating cutoff</label><input id="lowRatingCutoff" type="number" /></div>
+  <div class="row"><label>Low-rating accuracy threshold (%)</label><input id="lowRatingAccuracyThreshold" type="number" /></div>
+  <div class="row"><label>High-rating accuracy threshold (%)</label><input id="highRatingAccuracyThreshold" type="number" /></div>
+  <div class="row"><label>Min games for overall winrate</label><input id="minGamesForOverall" type="number" /></div>
+  <div class="row"><label>Min games for recent winrate</label><input id="minGamesForRecent" type="number" /></div>
+  <div class="row"><label>Min games for accuracy analysis</label><input id="minGamesForAccuracy" type="number" /></div>
+  <div class="row"><label>Notable high-accuracy share (%)</label><input id="highAccNotablePct" type="number" /></div>
+  <div class="row"><label>Severe high-accuracy share (%)</label><input id="highAccSeverePct" type="number" /></div>
+
+  <button id="save">Save</button><span id="status"></span>
+
+  <script src="options.js"></script>
+</body>
+</html>

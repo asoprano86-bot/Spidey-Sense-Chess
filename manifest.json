@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Chess.com Opponent Risk Score (Tweaked)",
+  "version": "0.2.0",
+  "description": "Estimates opponent risk score on Chess.com using account age, win rates, and high-accuracy games.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.chess.com/*",
+    "https://api.chess.com/*"
+  ],
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.chess.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
