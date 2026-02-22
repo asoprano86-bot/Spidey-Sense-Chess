@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spidey Sense Chess</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <img src="icons/icon48.png" alt="Spidey Sense" class="logo-icon">
+        <h1>Spidey Sense Chess</h1>
+      </div>
+      <div class="subtitle">🕷️ Your spider senses are tingling...</div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="loading">
+      <div class="web-spinner"></div>
+      <p>Scanning opponent...</p>
+    </div>
+
+    <!-- No Game State -->
+    <div id="no-game" class="no-game hidden">
+      <div class="spider-web-bg">🕸️</div>
+      <h3>No game detected</h3>
+      <p>Navigate to a Chess.com game to activate your Spidey Sense!</p>
+    </div>
+
+    <!-- Risk Analysis Results -->
+    <div id="results" class="results hidden">
+      <!-- Opponent Info -->
+      <div class="opponent-info">
+        <h3 id="opponent-name">Opponent</h3>
+        <div class="rating" id="rating">Rating: ---</div>
+      </div>
+
+      <!-- Risk Score Display -->
+      <div class="risk-display">
+        <div class="risk-circle" id="risk-circle">
+          <div class="risk-score" id="risk-score">0</div>
+          <div class="risk-label">RISK</div>
+        </div>
+        <div class="risk-text" id="risk-text">Analyzing...</div>
+      </div>
+
+      <!-- Risk Factors -->
+      <div class="factors">
+        <h4>🕵️ Analysis Breakdown</h4>
+        
+        <div class="factor" id="account-age">
+          <div class="factor-icon">📅</div>
+          <div class="factor-content">
+            <div class="factor-title">Account Age</div>
+            <div class="factor-value" id="age-value">Loading...</div>
+          </div>
+          <div class="factor-status" id="age-status">⚪</div>
+        </div>
+
+        <div class="factor" id="win-rates">
+          <div class="factor-icon">📊</div>
+          <div class="factor-content">
+            <div class="factor-title">Win Rates</div>
+            <div class="factor-value" id="winrate-value">Loading...</div>
+          </div>
+          <div class="factor-status" id="winrate-status">⚪</div>
+        </div>
+
+        <div class="factor" id="recent-performance">
+          <div class="factor-icon">⚡</div>
+          <div class="factor-content">
+            <div class="factor-title">Recent Performance</div>
+            <div class="factor-value" id="recent-value">Loading...</div>
+          </div>
+          <div class="factor-status" id="recent-status">⚪</div>
+        </div>
+      </div>
+
+      <!-- Action Recommendation -->
+      <div class="recommendation" id="recommendation">
+        <div class="rec-icon" id="rec-icon">🤔</div>
+        <div class="rec-text" id="rec-text">Calculating recommendation...</div>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="error hidden">
+      <div class="error-icon">⚠️</div>
+      <h3>Unable to analyze opponent</h3>
+      <p id="error-message">Something went wrong</p>
+      <button id="retry-btn" class="retry-btn">Try Again</button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="web-pattern">🕸️</div>
+      <div class="motto">With great power comes great responsibility</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
