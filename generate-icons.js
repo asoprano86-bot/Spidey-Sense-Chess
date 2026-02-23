@@ -38,7 +38,7 @@ sizes.forEach(size => {
       </radialGradient>
     </defs>
     <circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="url(#bg)" stroke="white" stroke-width="1"/>
-    <text x="${size/2}" y="${size/2+${size*0.1}}" text-anchor="middle" font-size="${size*0.5}" fill="white">🕷️</text>
+    <text x="${size/2}" y="${size/2+size*0.1}" text-anchor="middle" font-size="${size*0.5}" fill="white">🕷️</text>
   </svg>`;
   
   // Write SVG temporarily for manual conversion

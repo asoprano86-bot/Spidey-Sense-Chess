@@ -33,7 +33,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*.png", "icons/*.svg"],
+      "resources": ["icons/*.png", "icons/*.svg", "logo.svg"],
       "matches": ["https://www.chess.com/*"]
     }
   ],
