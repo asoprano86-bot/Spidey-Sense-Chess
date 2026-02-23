@@ -34,8 +34,15 @@
     const v = (t || "").trim().replace(/^@/, "").toLowerCase();
     if (!/^[a-z0-9_-]{3,20}$/i.test(v)) return null;
     
-    // Filter out common false positives
-    const blocked = ['game', 'play', 'chess', 'live', 'move', 'time', 'white', 'black', 'player', 'user', 'guest', 'anon'];
+    // Filter out common false positives - expanded list
+    const blocked = [
+      'game', 'play', 'chess', 'live', 'move', 'time', 'white', 'black', 
+      'player', 'user', 'guest', 'anon', 'online', 'offline', 'playing',
+      'rated', 'unrated', 'casual', 'tournament', 'arena', 'swiss',
+      'bullet', 'blitz', 'rapid', 'daily', 'classical', 'correspondence',
+      'analysis', 'puzzle', 'lesson', 'study', 'board', 'pieces',
+      'settings', 'profile', 'friends', 'messages', 'home', 'news'
+    ];
     if (blocked.includes(v)) return null;
     
     return v;
@@ -80,51 +87,56 @@
   function getSelfUsername() {
     if (SELF_OVERRIDE) return SELF_OVERRIDE;
     
-    // Expanded selectors for current Chess.com structure
-    const selectors = [
-      // User menu and profile elements
-      '[data-cy="home-username"]',
-      '[data-cy="user-menu-username"]', 
-      '[data-cy="user-username"]',
-      '.user-menu-username',
-      // Profile/avatar links
-      'a[href*="/member/"][aria-label*="Profile"]',
-      'a[href*="/member/"][data-cy*="avatar"]',
-      'a[href*="/member/"][aria-current="page"]',
-      // Header user info
-      'header .user-tagline-username',
-      'header [data-cy="user-tagline-username"]',
-      '.header-user .username',
-      // Navigation user elements  
-      'nav a[href*="/member/"] .username',
-      'nav [data-cy="user-tagline-username"]',
-      // User info areas
-      '.user-info .username',
-      '.profile-username',
-      // Modern layout
-      '.sidebar .user-tagline-username',
-      '.user-component .user-tagline-username'
+    // Strategy 1: Direct self-identification selectors (most reliable)
+    const directSelectors = [
+      '[data-cy="user-menu-username"]',
+      '[data-cy="home-username"]', 
+      '.user-menu .user-tagline-username',
+      'header .user-tagline-username'
     ];
     
-    for (const sel of selectors) {
+    for (const sel of directSelectors) {
       const el = document.querySelector(sel);
-      if (!el) continue;
-      
-      const txt = normalizeName(el?.textContent || "");
-      if (txt) return txt;
-      
-      const href = el?.getAttribute('href') || '';
-      const m = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
-      if (m) return m[1].toLowerCase();
+      if (el) {
+        const username = normalizeName(el.textContent);
+        if (username) {
+          console.log('🕷️ Self username found via', sel, ':', username);
+          return username;
+        }
+      }
     }
     
-    // Try to extract from URL if on a member page
-    if (location.pathname.includes('/member/')) {
-      const urlUser = parseUsernameFromUrl();
-      if (urlUser) return urlUser;
+    // Strategy 2: Profile links in navigation/header
+    const profileLinkSelectors = [
+      'header a[href*="/member/"]',
+      'nav a[href*="/member/"]',
+      '.user-menu a[href*="/member/"]'
+    ];
+    
+    for (const sel of profileLinkSelectors) {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        const href = el.getAttribute('href') || '';
+        const match = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+        if (match) {
+          const username = normalizeName(match[1]);
+          if (username) {
+            console.log('🕷️ Self username found via profile link', sel, ':', username);
+            return username;
+          }
+        }
+      }
     }
     
-    return getSelfFromStorage();
+    // Strategy 3: Storage/URL fallback
+    const stored = getSelfFromStorage();
+    if (stored) {
+      console.log('🕷️ Self username found in storage:', stored);
+      return stored;
+    }
+    
+    console.log('🕷️ Self username not found - using fallbacks');
+    return null;
   }
 
   function readNamesFromContainer(containerSelector) {
@@ -132,27 +144,24 @@
     if (!container) return [];
     const out = [];
     
-    // More specific selectors for Chess.com live games (2026)
+    // 2026 Chess.com selectors - ultra-specific to avoid false positives
     const selectors = [
-      // Current Chess.com structure
-      '[data-cy="user-tagline-username"]',
-      '.user-username-component',
-      '.username:not(.game-username):not(.player-username)', // Avoid generic game text
-      'a[href*="/member/"]:not([href*="/game/"]):not([href*="/live/"])', // Member links but not game links
-      // Live game player areas - more specific
-      '.player-component [data-cy="user-tagline-username"]',
-      '.player-info [data-cy="user-tagline-username"]',
-      '.game-layout-player-info .user-tagline-username',
-      '.board-layout-vertical .player-top [data-cy="user-tagline-username"]',
-      '.board-layout-vertical .player-bottom [data-cy="user-tagline-username"]',
-      // Alternative structures
-      '.player-top .user-tagline .username',
-      '.player-bottom .user-tagline .username',
-      '.player-component .user-tagline .username',
-      // Header/nav member links (for current user detection)
-      'header a[href*="/member/"]',
-      'nav a[href*="/member/"]',
-      '.user-info a[href*="/member/"]'
+      // PRIMARY: Live game player usernames (most reliable)
+      `${containerSelector} [data-cy="user-tagline-username"]:not(:empty)`,
+      `${containerSelector} .user-tagline-username:not(:empty)`,
+      `${containerSelector} .username.user-tagline-username:not(:empty)`,
+      
+      // SECONDARY: Player component usernames  
+      `${containerSelector} .player-component .username:not(.game-username):not(.player-username)`,
+      `${containerSelector} .player-info .username:not(.game-username)`,
+      
+      // TERTIARY: Member profile links (very specific)
+      `${containerSelector} a[href^="https://www.chess.com/member/"]:not([href*="/game/"]):not([href*="/play/"])`,
+      `${containerSelector} a[href^="/member/"]:not([href*="/game/"]):not([href*="/play/"])`,
+      
+      // FALLBACK: But only if they contain exactly one valid username
+      `${containerSelector} .player-top .username:not(:empty)`,
+      `${containerSelector} .player-bottom .username:not(:empty)`
     ];
     
     const debugCandidates = [];
@@ -259,37 +268,59 @@
 
   function findOpponentUsernameFromDom(lastOpponent = null) {
     const selfName = getSelfUsername();
-    const topCandidates = readNamesFromContainer('.board-layout-player-top, .player-top');
-    const bottomCandidates = readNamesFromContainer('.board-layout-player-bottom, .player-bottom');
-
-    // Prefer top area first (usually opponent), then bottom.
-    const topPick = chooseOpponentFromCandidates(topCandidates, selfName, lastOpponent);
-    if (topPick) return topPick;
-
-    const bottomPick = chooseOpponentFromCandidates(bottomCandidates, selfName, lastOpponent);
-    if (bottomPick) return bottomPick;
-
-    // Combine board-only candidates if needed.
-    const boardCandidates = [...new Set([...topCandidates, ...bottomCandidates])];
-    const boardPick = chooseOpponentFromCandidates(boardCandidates, selfName, lastOpponent);
-    if (boardPick) return boardPick;
-
-    // Strong fallback: parse embedded game metadata/scripts.
-    const scriptedPlayers = extractPlayersFromScripts();
-
-    // If self unknown, try infer self by matching profile/nav member links.
-    if (!selfName && scriptedPlayers.length >= 2) {
-      const profileNames = getProfileLinkNames();
-      const inferredSelf = scriptedPlayers.find(n => profileNames.includes(n));
-      if (inferredSelf) {
-        const opp = scriptedPlayers.find(n => n !== inferredSelf);
-        if (opp) return opp;
+    
+    // Strategy 1: Highly specific live game selectors
+    const gameSpecificSelectors = [
+      // Chess.com 2026 live game structure
+      '.board-layout-player-top [data-cy="user-tagline-username"]',
+      '.board-layout-player-bottom [data-cy="user-tagline-username"]',
+      '.player-component:not(.player-component--self) [data-cy="user-tagline-username"]',
+      '.game-layout-player-info [data-cy="user-tagline-username"]'
+    ];
+    
+    for (const selector of gameSpecificSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const el of elements) {
+        const username = normalizeName(el.textContent);
+        if (username && username !== selfName) {
+          return username;
+        }
       }
     }
-
-    const scriptPick = chooseOpponentFromCandidates(scriptedPlayers, selfName, lastOpponent);
-    if (scriptPick) return scriptPick;
-
+    
+    // Strategy 2: Member links in game area (very reliable)
+    const memberLinkSelectors = [
+      '.board-layout-player-top a[href*="/member/"]',
+      '.board-layout-player-bottom a[href*="/member/"]',
+      '.player-component a[href*="/member/"]:not([href*="/game/"])'
+    ];
+    
+    for (const selector of memberLinkSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const el of elements) {
+        const href = el.getAttribute('href') || '';
+        const match = href.match(/\/member\/([a-z0-9_-]{3,20})/i);
+        if (match) {
+          const username = normalizeName(match[1]);
+          if (username && username !== selfName) {
+            return username;
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Script parsing (last resort)
+    const scriptedPlayers = extractPlayersFromScripts();
+    const validPlayers = scriptedPlayers.filter(p => p !== selfName);
+    if (validPlayers.length === 1) {
+      return validPlayers[0];
+    }
+    
+    // If we still have lastOpponent and it's in valid players, use it
+    if (lastOpponent && validPlayers.includes(lastOpponent)) {
+      return lastOpponent;
+    }
+    
     return null;
   }
 
@@ -417,7 +448,11 @@
       document.body.appendChild(root);
       const logo = root.querySelector('#risk-logo');
       if (logo) {
-        try { logo.src = chrome.runtime.getURL('logo.svg'); } catch {}
+        try { 
+          logo.src = chrome?.runtime?.getURL?.('logo.svg') || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="%23c41e3a"/><text x="8" y="12" text-anchor="middle" font-size="10" fill="white">🕷</text></svg>';
+        } catch {
+          logo.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="%23c41e3a"/><text x="8" y="12" text-anchor="middle" font-size="10" fill="white">🕷</text></svg>';
+        }
       }
     }
     return root;
@@ -556,27 +591,46 @@
   }
 
   async function tick() {
-    // Initialize debug tracking
-    window.chessRiskDebug = { lastCandidates: [] };
-    
     const selfName = getSelfUsername();
-    const topCandidates = readNamesFromContainer('.board-layout-player-top, .player-top, .game-layout-player-info, .player-component:first-of-type');
-    const bottomCandidates = readNamesFromContainer('.board-layout-player-bottom, .player-bottom, .player-component:last-of-type');
-    const scriptedPlayers = extractPlayersFromScripts();
     
-    const user = (findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || "").toLowerCase();
+    // Debug: Log current page context
+    console.log('🕷️ Spidey Sense: Scanning for opponent...', {
+      url: location.href,
+      pathname: location.pathname,
+      selfName: selfName
+    });
     
-    if (!user) {
-      // Enhanced debug info
-      const allCandidates = window.chessRiskDebug.lastCandidates || [];
-      const debugDetails = allCandidates.length > 0 ? 
-        `\nDetailed scan: ${allCandidates.map(c => `${c.selector}: "${c.rawText || c.href}" -> ${c.normalized || c.extracted || 'null'}`).join('; ')}` : 
-        '';
-      const debugInfo = `Debug: Self=${selfName||'none'} Top=[${topCandidates.join(',')}] Bottom=[${bottomCandidates.join(',')}] Script=[${scriptedPlayers.join(',')}]${debugDetails}`;
-      renderError(`Could not auto-detect opponent username. Click @ to enter manually. ${debugInfo}`);
+    const opponent = findOpponentUsernameFromDom(lastUser);
+    
+    if (!opponent) {
+      // Detailed debugging
+      const allUsernames = [];
+      const debugSelectors = [
+        '[data-cy="user-tagline-username"]',
+        '.username',
+        'a[href*="/member/"]'
+      ];
+      
+      debugSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+          const text = el.textContent?.trim();
+          const href = el.getAttribute('href');
+          if (text) allUsernames.push(`${sel}:"${text}"`);
+          if (href && href.includes('/member/')) {
+            const match = href.match(/\/member\/([^/?]+)/);
+            if (match) allUsernames.push(`${sel}:href="${match[1]}"`);
+          }
+        });
+      });
+      
+      console.log('🕷️ Debug - All found usernames:', allUsernames);
+      renderError(`Could not detect opponent. Self: ${selfName || 'unknown'}. Found usernames: ${allUsernames.slice(0, 5).join(', ')}${allUsernames.length > 5 ? '...' : ''}. Click @ to enter manually.`);
       return;
     }
-    await runForUser(user);
+    
+    console.log('🕷️ Opponent detected:', opponent);
+    lastUser = opponent;
+    await runForUser(opponent);
   }
 
   function boot() {
