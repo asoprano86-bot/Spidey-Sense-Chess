@@ -138,7 +138,7 @@
       '[data-cy="user-tagline-username"]',
       '.user-username-component',
       '.username:not(.game-username):not(.player-username)', // Avoid generic game text
-      'a[href*="/member/"]:not([href*="/game/"]):not([href*="/live/"]), // Member links but not game links
+      'a[href*="/member/"]:not([href*="/game/"]):not([href*="/live/"])', // Member links but not game links
       // Live game player areas - more specific
       '.player-component [data-cy="user-tagline-username"]',
       '.player-info [data-cy="user-tagline-username"]',
@@ -613,6 +613,15 @@
     obs.observe(document.documentElement, { childList: true, subtree: true });
     setInterval(tick, 5000);
   }
+
+  // Message listener for communication with popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'GET_OPPONENT') {
+      const opponent = findOpponentUsernameFromDom(lastUser) || parseUsernameFromUrl() || lastUser;
+      sendResponse({ opponent: opponent || null });
+      return true;
+    }
+  });
 
   boot();
 })();
